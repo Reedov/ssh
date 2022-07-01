@@ -31,12 +31,18 @@ class SSH:
         self.client.connect(host, username=username, password=password)
 
     def get_file_list(self, remote_path: str, file_extention: str) -> list:
-        """ получить список файлов по маске """
+        """ Получить список файлов по расширению в удаленной директории
+        Args:
+            remote_path: директория на удаленном сервере
+            file_extention: расширение файлов
+        Returns:
+            Список файлов
+        """
         stdin, stdout, stderr = self.client.exec_command(f'ls {remote_path}*{file_extention}')
-        return stdout.readlines()
+        return [x.strip() for x in stdout.readlines()]
 
     def delete_file(self, filepath: str) -> tuple:
-        """ удалить файл """
+        """ Удалить файл на сервере """
         stdin, stdout, stderr = self.client.exec_command(f'rm {filepath}')
         return stdout.readlines(), stderr.readlines()
 
@@ -49,11 +55,19 @@ class SFTP:
         self.sftp = SFTPClient.from_transport(self.transport)
 
     def get_file(self, remote_filepath: path, local_filepath: path):
-        """ скачать файл с сервера """
+        """ Скачать файл с сервера
+        Args:
+            remote_filepath: путь к файлу на сервере
+            local_filepath: локальный путь для сохранения
+        """
         self.sftp.get(remotepath=remote_filepath, localpath=local_filepath)
 
     def put_file(self, local_filepath: str, remote_filepath: str):
-        """ закачать файл на сервер """
+        """ Закачать файл на сервер
+        Args:
+            local_filepath: локальный путь к файлу
+            remote_filepath: путь для сохранения файла на сервере
+        """
         self.sftp.put(localpath=local_filepath, remotepath=remote_filepath)
 
 
@@ -62,21 +76,20 @@ def main():
         скачать файлы в локальную директорию LOCAL_PATH,
         удалить эти файлы на сервере.
     """
-    ssh = SSH()
-    files = ssh.get_file_list(REMOTE_PATH, REMOTE_FILEXTENTION)
+    ssh_client = SSH()
+    files = ssh_client.get_file_list(REMOTE_PATH, REMOTE_FILEXTENTION)
     if not files:
         logger.info(f'there is no files *{REMOTE_FILEXTENTION} at {HOST}{REMOTE_PATH}')
         return
 
     sftp_client = SFTP()
-    for file in files:
-        filepath = file.strip()
+    for filepath in files:
         filename = path.basename(filepath)
         local_filepath = path.join(LOCAL_PATH, filename)
         sftp_client.get_file(remote_filepath=filepath, local_filepath=local_filepath)
         is_local_file_exists = True if path.isfile(local_filepath) else False
         if is_local_file_exists:
-            success, failure = ssh.delete_file(filepath)
+            success, failure = ssh_client.delete_file(filepath)
             if failure:
                 logger.error(f'cant remove {filepath}, error: {failure}')
             else:
