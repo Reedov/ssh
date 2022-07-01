@@ -3,7 +3,7 @@
 """
 import configparser
 from paramiko import SSHClient, AutoAddPolicy, Transport, SFTPClient  # pip install paramiko
-import os
+from os import path
 import logging
 logging.basicConfig(format='%(asctime)s - %(levelname)s [%(funcName)s:%(lineno)s] %(message)s', level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -35,7 +35,7 @@ class SSH:
         stdin, stdout, stderr = self.client.exec_command(f'ls {remote_path}*{file_extention}')
         return stdout.readlines()
 
-    def delete_file(self, filepath: str):
+    def delete_file(self, filepath: str) -> tuple:
         """ удалить файл """
         stdin, stdout, stderr = self.client.exec_command(f'rm {filepath}')
         return stdout.readlines(), stderr.readlines()
@@ -48,7 +48,7 @@ class SFTP:
         self.transport.connect(username=username, password=password)
         self.sftp = SFTPClient.from_transport(self.transport)
 
-    def get_file(self, remote_filepath: str, local_filepath: str):
+    def get_file(self, remote_filepath: path, local_filepath: path):
         """ скачать файл с сервера """
         self.sftp.get(remotepath=remote_filepath, localpath=local_filepath)
 
@@ -58,6 +58,10 @@ class SFTP:
 
 
 def main():
+    """ Получить список файлов с расширением REMOTE_FILEXTENTION в директории REMOTE_PATH
+        скачать файлы в локальную директорию LOCAL_PATH,
+        удалить эти файлы на сервере.
+    """
     ssh = SSH()
     files = ssh.get_file_list(REMOTE_PATH, REMOTE_FILEXTENTION)
     if not files:
@@ -67,10 +71,10 @@ def main():
     sftp_client = SFTP()
     for file in files:
         filepath = file.strip()
-        filename = os.path.basename(filepath)
-        local_filepath = os.path.join(LOCAL_PATH, filename)
+        filename = path.basename(filepath)
+        local_filepath = path.join(LOCAL_PATH, filename)
         sftp_client.get_file(remote_filepath=filepath, local_filepath=local_filepath)
-        is_local_file_exists = True if os.path.isfile(local_filepath) else False
+        is_local_file_exists = True if path.isfile(local_filepath) else False
         if is_local_file_exists:
             success, failure = ssh.delete_file(filepath)
             if failure:
